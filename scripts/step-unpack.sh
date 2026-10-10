@@ -11,3 +11,20 @@ cm="$(find "$WORK/unz" -name CMakeLists.txt -not -path '*/__MACOSX/*' -printf '%
 srcdir="$(dirname "$cm")"
 mv "$srcdir" "$WORK/src"
 log "project dir: ${srcdir#"$WORK/unz/"} (CMakeLists.txt found)"
+
+# toolchain.txt (optional, project root): "openorbis" (default) or "payload-sdk"
+tc=""; tc_src="default"
+for f in "$WORK/src/toolchain.txt" "$WORK/unz/toolchain.txt"; do
+  if [ -f "$f" ]; then
+    tc="$(head -n1 "$f" | tr -d '\r' | tr 'A-Z' 'a-z' | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')"
+    tc_src="${f#"$WORK/"}"
+    break
+  fi
+done
+[ -n "$tc" ] || tc="openorbis"
+case "$tc" in
+  openorbis|payload-sdk) ;;
+  *) fail "toolchain.txt must contain exactly 'openorbis' or 'payload-sdk' (found: '$tc' in $tc_src)" ;;
+esac
+echo "$tc" > "$WORK/toolchain.txt"
+log "toolchain: $tc (from $tc_src)"

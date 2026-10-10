@@ -1,0 +1,44 @@
+# ps4-payload-dev/sdk toolchain image (clang + lld, no OpenOrbis).
+# Sources: https://github.com/ps4-payload-dev/sdk (README "Prerequisites", "Quick-start")
+#          https://github.com/ps4-payload-dev/pacbrew (recipes for zlib/openssl/openlibm/libpsl/curl)
+# The libraries are built by docker/payload-deps.sh; see the comments there for what is verified.
+FROM ubuntu:24.04
+
+ARG REPO_URL=""
+LABEL org.opencontainers.image.source="${REPO_URL}"
+LABEL org.opencontainers.image.description="ps4-payload-dev SDK + libs for ps4-ezremote-server"
+
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+ENV DEBIAN_FRONTEND=noninteractive
+
+# SDK README: "bash clang-18 lld-18" (required), "cmake" (optional).
+# llvm-18 is added because the SDK's orbis-llvm-config / orbis-ar / orbis-strip wrappers call llvm-config-18 and llvm-* tools.
+# python3-pyelftools: only needed to build extra SCE stubs (README "Adding new SCE Libs"); kept as requested.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      bash clang-18 lld-18 llvm-18 make cmake python3 python3-pyelftools \
+      git curl wget ca-certificates unzip zip xz-utils file perl pkg-config \
+      build-essential autoconf automake libtool \
+    && rm -rf /var/lib/apt/lists/*
+
+# SDK binary distribution (README "Quick-start"): unzip -d /opt ps4-payload-sdk.zip
+RUN set -eux; \
+    curl -fsSL -o /tmp/sdk.zip https://github.com/ps4-payload-dev/sdk/releases/latest/download/ps4-payload-sdk.zip; \
+    sha256sum /tmp/sdk.zip | tee /opt/ps4-payload-sdk.sha256; \
+    unzip -q -d /opt /tmp/sdk.zip; \
+    rm /tmp/sdk.zip; \
+    chmod -R a+rX /opt/ps4-payload-sdk; \
+    chmod a+x /opt/ps4-payload-sdk/bin/*
+ENV PS4_PAYLOAD_SDK=/opt/ps4-payload-sdk
+
+# Libraries -> /opt/ps4-payload-sdk/target/user/homebrew
+COPY payload-deps.sh /tmp/payload-deps.sh
+RUN set -eux; bash /tmp/payload-deps.sh /tmp/deps-work; rm -rf /tmp/deps-work /tmp/payload-deps.sh; \
+    chmod -R a+rX /opt/ps4-payload-sdk
+
+# Self-test: build the SDK's own hello_stdio sample (README "Usage": make -C samples/hello_stdio)
+RUN set -eux; \
+    cp -r /opt/ps4-payload-sdk/samples/hello_stdio /tmp/hello_stdio; \
+    make -C /tmp/hello_stdio; \
+    test -s /tmp/hello_stdio/hello_stdio.elf; \
+    file /tmp/hello_stdio/hello_stdio.elf; \
+    rm -rf /tmp/hello_stdio

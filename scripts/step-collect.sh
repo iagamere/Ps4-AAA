@@ -4,6 +4,7 @@ set -uo pipefail
 source "$(dirname "$0")/lib.sh"
 
 ok=false; elf=""; version=""
+log "toolchain used: $(cat "$WORK/toolchain.txt" 2>/dev/null || echo unknown)"
 if [ "${BUILD_FAILED:-}" != "true" ]; then
   found="$(find "$WORK/src/build" -name '*.elf' -not -path '*/CMakeFiles/*' 2>/dev/null)"
   pick="$(printf '%s\n' "$found" | grep -E '/ezremote-server-[^/]*\.elf$' | head -1)"
