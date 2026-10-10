@@ -1,0 +1,67 @@
+name: build
+
+on:
+  push:
+    paths:
+      - 'incoming/*.zip'
+  workflow_dispatch:
+    inputs:
+      zip:
+        description: 'Path of the zip inside the repo (default: newest incoming/*.zip)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+  packages: read
+
+env:
+  OUT: ${{ github.workspace }}/_out
+  WORK: ${{ github.workspace }}/_work
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # NOTE: step names are shown by the Android app as the "stage". Keep the "[n/7]" prefix.
+      - name: "[1/7] Resolve zip"
+        run: bash scripts/step-resolve.sh "${{ github.event.inputs.zip }}"
+
+      - name: "[2/7] Unpack zip"
+        if: env.BUILD_FAILED != 'true'
+        run: bash scripts/step-unpack.sh
+
+      - name: "[3/7] Pull toolchain image"
+        if: env.BUILD_FAILED != 'true'
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash scripts/step-pull.sh
+
+      - name: "[4/7] Configure (openorbis-cmake)"
+        if: env.BUILD_FAILED != 'true'
+        run: bash scripts/step-configure.sh
+
+      - name: "[5/7] Compile (make)"
+        if: env.BUILD_FAILED != 'true'
+        run: bash scripts/step-compile.sh
+
+      - name: "[6/7] Collect results"
+        if: always()
+        run: bash scripts/step-collect.sh
+
+      - name: "[7/7] Publish release"
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/step-publish.sh "${{ github.run_number }}"
+
+      - name: Fail job if build failed
+        if: env.BUILD_FAILED == 'true'
+        run: |
+          echo "Build failed - see release build-${{ github.run_number }} (errors.txt / build.log)."
+          exit 1
