@@ -42,7 +42,7 @@ jobs:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: bash scripts/step-pull.sh
 
-      - name: "[4/7] Configure (openorbis-cmake)"
+      - name: "[4/7] Configure (cmake)"
         if: env.BUILD_FAILED != 'true'
         run: bash scripts/step-configure.sh
 
