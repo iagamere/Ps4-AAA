@@ -24,7 +24,10 @@ RUN set -eux; \
     cat /etc/pacman.conf
 
 # --- toolchain + portlibs (zlib, libjson-c, mbedtls, libcurl(mbedtls), ...) ---
+# Docker has no /etc/mtab and pacman's CheckSpace needs it ("could not open file: /etc/mtab") -> link it and disable CheckSpace.
 RUN set -eux; \
+    ln -sf /proc/self/mounts /etc/mtab; \
+    sed -i 's/^CheckSpace/#CheckSpace/' /etc/pacman.conf; \
     pacman -Sy --noconfirm; \
     pacman -S --noconfirm ps4-openorbis ps4-openorbis-portlibs; \
     chmod a+x /opt/pacbrew/ps4/openorbis/ps4vars.sh
